@@ -1,2 +1,12 @@
-# n8n-order-tracking
-Automated e-commerce order tracking: n8n workflows send/update customer emails from Google Sheets
+
+# n8n Order Tracking System
+
+Automates tracking links via email on purchase, updates from Google Sheets/Apps Script.
+
+## Features
+- New order → email with tracking URL
+- Auto-updates status
+
+## Setup
+1. Import `order-tracking-workflow.json`
+2. Add webhooks/credentials
