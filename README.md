@@ -4,6 +4,7 @@ n8n + Google Apps Script + WooCommerce Integration
 
 
 📝 Overview
+
 This project is a production-ready automation workflow designed to streamline the post-purchase customer experience. It captures order status updates from a WooCommerce store, validates the request for security, processes complex tracking logic via Google Apps Script, and delivers personalized tracking emails to customers.
 
 By automating this process, the system reduces manual overhead for store owners and provides customers with real-time transparency regarding their order status.
@@ -11,6 +12,7 @@ By automating this process, the system reduces manual overhead for store owners 
 
 
 🚀 Key Features
+
 Secure Webhook Architecture: Implements HMAC SHA256 signature verification to ensure incoming data is authentic and originates from the trusted store.
 
 Custom Data Normalization: Uses a JavaScript-based "Sanitize" node to handle varied payload structures, ensuring the pipeline remains resilient to upstream data changes.
@@ -24,6 +26,7 @@ Personalized Notifications: Automatically generates and sends HTML-formatted ema
 
 
 🛠️ Technology Stack
+
 Automation Platform: n8n
 
 Backend Logic: Google Apps Script
@@ -37,6 +40,7 @@ Email: SMTP Integration
 
 
 ⚙️ Workflow Logic
+
 Trigger: A Webhook receives an order.processing topic from the store.
 
 Validation: The Crypto Node calculates an HMAC hash of the raw body and compares it to the source header for security.
@@ -52,6 +56,7 @@ Failure: The system logs the error (including remote IP and error reason) to a s
 
 
 📦 Installation & Setup
+
 n8n Setup: Import the provided order-tracking-workflow.json into your n8n instance.
 
 Environment Variables: Configure the following credentials:
@@ -67,6 +72,7 @@ Webhook Configuration: Copy the Webhook URL from n8n and paste it into your WooC
 
 
 📷 Workflow Visualization
+
 <img width="1275" height="587" alt="image" src="https://github.com/user-attachments/assets/df9d5127-226d-4a82-aa57-77a510623980" />
 
 
