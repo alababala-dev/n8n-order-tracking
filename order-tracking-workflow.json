@@ -1,0 +1,417 @@
+{
+  "name": "Order Tracking Automation (Public Template)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-update",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3024,
+        -1440
+      ],
+      "id": "webhook-node",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $json || {};\nfunction cleanStr(v, space = '') {\n  let s = v == null ? '' : String(v);\n  s = s.replace(/[\\r\\n]+/g, space);\n  if (space === ' ') s = s.replace(/\\s{2,}/g, ' ');\n  return s.trim();\n}\n\nconst out = {\n  order_id: cleanStr(src.order_id || src.body?.order_id || src.id || src.order?.id || src.body?.order?.id),\n  customer_name: cleanStr(\n    src.customer_name || src.body?.customer_name ||\n    (((src.billing?.first_name || src.body?.billing?.first_name || '') + ' ' +\n      (src.billing?.last_name  || src.body?.billing?.last_name  || '')).trim()),\n    ' '\n  ),\n  status_step: Number(cleanStr(src.status_step || src.body?.status_step || 1)),\n  customer_email: cleanStr(src.customer_email || src.body?.customer_email || src.billing?.email || src.body?.billing?.email),\n  secret: cleanStr(src.secret || src.body?.secret || '')\n};\n\nif (!Number.isFinite(out.status_step)) out.status_step = 1;\nreturn [{ json: out }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1760,
+        -1600
+      ],
+      "id": "sanitize-node",
+      "name": "Sanitize"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-ok",
+              "leftValue": "={{ Boolean($json.ok ?? $json.body?.ok ?? ($json.statusCode >= 200 && $json.statusCode < 300)) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1376,
+        -1632
+      ],
+      "id": "if-ok-node",
+      "name": "If: ok?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log-event",
+              "name": "=event",
+              "value": "=failed_update",
+              "type": "string"
+            },
+            {
+              "id": "log-order-id",
+              "name": "=order_id",
+              "value": "={{$node[\"Sanitize\"].json.order_id}}",
+              "type": "string"
+            },
+            {
+              "id": "log-reason",
+              "name": "=reason",
+              "value": "={{$node[\"HTTP Request\"].json.error || $node[\"HTTP Request\"].json.body?.error || \"unknown\"}}",
+              "type": "string"
+            },
+            {
+              "id": "log-ts",
+              "name": "=ts",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -992,
+        -1296
+      ],
+      "id": "build-log-node",
+      "name": "Build Log"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "set-order-id",
+              "name": "=order_id",
+              "value": "={{ $json.id || $json.number || $json.order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "set-email",
+              "name": "=customer_email",
+              "value": "={{ $json.billing?.email || $json.customer_email }}",
+              "type": "string"
+            },
+            {
+              "id": "set-sig",
+              "name": "=sig",
+              "value": "={{$json.headers[\"x-wc-webhook-signature\"]}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2016,
+        -1632
+      ],
+      "id": "set-node",
+      "name": "Set"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": false, \"error\": \"unauthorized or upstream error\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -560,
+        -1312
+      ],
+      "id": "respond-false",
+      "name": "Respond to Webhook - False"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/REPLACE_WITH_YOUR_LOGGING_SCRIPT_ID/exec",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=event",
+              "value": "={{$node[\"Build Log\"].json.event}}"
+            },
+            {
+              "name": "=secret",
+              "value": "REPLACE_WITH_YOUR_SECRET_TOKEN"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -768,
+        -1312
+      ],
+      "id": "http-false",
+      "name": "HTTP Request - False"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($node[\"HTTP Request\"].json || { ok: true }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -624,
+        -1552
+      ],
+      "id": "respond-true",
+      "name": "Respond to Webhook - True"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email-to",
+              "name": "to",
+              "value": "={{ $node[\"Set\"].json.customer_email }}",
+              "type": "string"
+            },
+            {
+              "id": "email-subject",
+              "name": "subject",
+              "value": "=Order Update – Tracking Link for Order #{{$node[\"Sanitize\"].json.order_id}}",
+              "type": "string"
+            },
+            {
+              "id": "email-html",
+              "name": "html",
+              "value": "=<div dir=\"rtl\" style=\"font-family:Arial,sans-serif;\">\n  <h2>מעקב הזמנה</h2>\n  <p>שלום {{$node[\"Sanitize\"].json.customer_name}},</p>\n  <p>ההזמנה שלך <strong>#{{$node[\"Sanitize\"].json.order_id}}</strong> בטיפול.</p>\n  <p><a href=\"{{$node[\"HTTP Request\"].json.body.tracker_url}}\">לחצו כאן למעקב</a></p>\n</div>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1072,
+        -1552
+      ],
+      "id": "build-email-node",
+      "name": "Build Email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "no-reply@yourdomain.com",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{$json.html || $json.text}}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -864,
+        -1552
+      ],
+      "id": "send-email-node",
+      "name": "Send email"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "filter-processing",
+              "leftValue": "={{$json.headers['x-wc-webhook-topic'] || $json.topic}}",
+              "rightValue": "order.processing",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2784,
+        -1440
+      ],
+      "id": "if-topic-node",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "binaryData": true,
+        "type": "SHA256",
+        "secret": "REPLACE_WITH_YOUR_HMAC_SECRET",
+        "encoding": "base64"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        -2560,
+        -1504
+      ],
+      "id": "crypto-node",
+      "name": "Crypto"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -2400,
+        -1248
+      ],
+      "id": "respond-general",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-signature",
+              "leftValue": "={{$json.headers['x-wc-webhook-signature']}}",
+              "rightValue": "={{$node[\"Crypto\"].json.data}}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2384,
+        -1504
+      ],
+      "id": "if-sig-node",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/REPLACE_WITH_YOUR_MAIN_SCRIPT_ID/exec",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=order_id",
+              "value": "={{$node[\"Sanitize\"].json.order_id}}"
+            },
+            {
+              "name": "=secret",
+              "value": "={{$env.SECRET_APPS_SCRIPT}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1568,
+        -1632
+      ],
+      "id": "http-main-node",
+      "name": "HTTP Request"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "If", "type": "main", "index": 0 }]] },
+    "Sanitize": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
+    "If: ok?": { "main": [[{ "node": "Build Email", "type": "main", "index": 0 }], [{ "node": "Build Log", "type": "main", "index": 0 }]] },
+    "Set": { "main": [[{ "node": "Sanitize", "type": "main", "index": 0 }]] },
+    "Build Log": { "main": [[{ "node": "HTTP Request - False", "type": "main", "index": 0 }]] },
+    "Build Email": { "main": [[{ "node": "Send email", "type": "main", "index": 0 }]] },
+    "Send email": { "main": [[{ "node": "Respond to Webhook - True", "type": "main", "index": 0 }]] },
+    "HTTP Request - False": { "main": [[{ "node": "Respond to Webhook - False", "type": "main", "index": 0 }]] },
+    "If": { "main": [[{ "node": "Crypto", "type": "main", "index": 0 }], [{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] },
+    "Crypto": { "main": [[{ "node": "If1", "type": "main", "index": 0 }]] },
+    "If1": { "main": [[{ "node": "Set", "type": "main", "index": 0 }], [{ "node": "Build Log", "type": "main", "index": 0 }]] },
+    "HTTP Request": { "main": [[{ "node": "If: ok?", "type": "main", "index": 0 }]] }
+  }
+}
